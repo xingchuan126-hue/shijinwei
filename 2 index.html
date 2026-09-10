@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>拨一拨计数器 · 亿级完整版</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            font-family: 'Segoe UI', 'Roboto', system-ui, sans-serif;
+        }
+
+        body {
+            background: #eef2f7;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 12px;
+            margin: 0;
+        }
+
+        .counter-container {
+            max-width: 1500px;
+            width: 100%;
+            background: #ffffff;
+            padding: 20px 20px 26px;
+            border-radius: 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+            border: 1px solid #d0dae8;
+        }
+
+        .game-board {
+            background: #f8fafd;
+            border-radius: 20px;
+            padding: 18px 12px 16px;
+            box-shadow: inset 0 0 0 2px #e2e8f0;
+        }
+
+        /* 级数标签行——与下方数位颜色对应 */
+        .groups-row {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .group-label {
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-align: center;
+            border: 2px solid;
+            letter-spacing: 1px;
+            flex: 1;
+            max-width: 260px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
+        }
+
+        /* 亿级 —— 蓝色 */
+        .group-label.level-3 {
+            background: #dbeafe;
+            color: #1e40af;
+            border-color: #3b82f6;
+        }
+        /* 万级 —— 绿色 */
+        .group-label.level-2 {
+            background: #dcfce7;
+            color: #166534;
+            border-color: #22c55e;
+        }
+        /* 个级 —— 橙色 */
+        .group-label.level-1 {
+            background: #ffedd5;
+            color: #9a3412;
+            border-color: #f97316;
+        }
+
+        /* 数位主行 */
+        .digits-row {
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: center;
+            gap: 4px;
+            margin: 10px 0 14px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        /* 数位卡片 */
+        .digit-card {
+            flex: 0 0 78px;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 6px 0 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+            transition: box-shadow 0.15s;
+        }
+
+        .digit-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        /* 数位卡片顶部颜色条 —— 对应级色 */
+        .digit-card.level-3 { border-top: 5px solid #3b82f6; }
+        .digit-card.level-2 { border-top: 5px solid #22c55e; }
+        .digit-card.level-1 { border-top: 5px solid #f97316; }
+
+        /* 数位名称 */
+        .digit-title {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #334155;
+            padding: 3px 0 5px;
+            width: 100%;
+            text-align: center;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
+
+        .digit-card.level-3 .digit-title { color: #1e40af; }
+        .digit-card.level-2 .digit-title { color: #166534; }
+        .digit-card.level-1 .digit-title { color: #9a3412; }
+
+        /* 竖杆——珠子容器，确保9颗全部可见 */
+        .bead-area {
+            width: 52px;
+            height: 300px;
+            background: linear-gradient(to right, #e2e8f0, #f8fafc, #e2e8f0);
+            border-radius: 26px;
+            margin: 3px 0 3px;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 5px 0;
+            overflow: hidden;
+            border: 2px solid #cbd5e1;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.06);
+            gap: 2px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .bead-area:hover {
+            border-color: #94a3b8;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.1), 0 0 0 3px rgba(59,130,246,0.15);
+        }
+
+        .bead-area:active {
+            background: #e2e8f0;
+        }
+
+        /* 珠子 */
+        .bead {
+            width: 40px;
+            height: 26px;
+            background: radial-gradient(circle at 35% 35%, #fef9c3, #eab308, #a16207);
+            background: radial-gradient(circle at 30% 30%, #fef08a, #f59e0b, #b45309);
+            border-radius: 50% / 45%;
+            box-shadow: 
+                0 2px 4px rgba(0, 0, 0, 0.2),
+                inset -2px -2px 4px rgba(120, 53, 15, 0.4),
+                inset 2px 2px 5px rgba(255, 255, 200, 0.8);
+            border: 1px solid #d97706;
+            animation: dropIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            flex-shrink: 0;
+        }
+
+        @keyframes dropIn {
+            0% {
+                transform: translateY(-80px) scale(0.5);
+                opacity: 0;
+            }
+            70% {
+                transform: translateY(5px) scale(1.06);
+            }
+            100% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* 按钮区 */
+        .button-panel {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0 8px;
+        }
+
+        .btn {
+            background: #ffffff;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 9px 20px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.1s;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .btn:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn-primary {
+            background: #3b82f6;
+            border-color: #2563eb;
+            color: #ffffff;
+        }
+
+        .btn-primary:hover {
+            background: #2563eb;
+            border-color: #1d4ed8;
+        }
+
+        /* 目标输入区 */
+        .target-area {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            background: #f1f5f9;
+            padding: 10px 18px;
+            border-radius: 16px;
+            margin: 10px 0 6px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .target-label {
+            font-weight: 700;
+            color: #334155;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .target-input {
+            font-size: 1.05rem;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: 10px;
+            border: 2px solid #cbd5e1;
+            background: #ffffff;
+            color: #1e293b;
+            width: 200px;
+            text-align: right;
+            letter-spacing: 1px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .target-input:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+        }
+
+        /* 当前数值显示 */
+        .current-value-box {
+            background: #1e293b;
+            border-radius: 14px;
+            padding: 10px 24px;
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 3px;
+            margin: 8px 0 4px;
+            text-align: center;
+            word-break: break-all;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .status-msg {
+            text-align: center;
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #1e293b;
+            background: #f1f5f9;
+            padding: 5px 16px;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 4px auto;
+            border: 1px solid #e2e8f0;
+        }
+
+        .flex-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 8px;
+            color: #64748b;
+            font-weight: 500;
+            font-size: 0.8rem;
+        }
+
+        /* 小屏适配 */
+        @media (max-width: 1400px) {
+            .digit-card { flex: 0 0 70px; }
+            .bead-area { width: 48px; height: 280px; }
+            .bead { width: 36px; height: 23px; }
+        }
+        @media (max-width: 1100px) {
+            .digit-card { flex: 0 0 62px; }
+            .bead-area { width: 42px; height: 250px; }
+            .bead { width: 32px; height: 20px; }
+            .btn { padding: 7px 14px; font-size: 0.8rem; }
+            .current-value-box { font-size: 1.4rem; }
+            .group-label { font-size: 0.8rem; padding: 6px 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="counter-container">
+        <div class="game-board">
+            <!-- 级数标签 —— 亿级、万级、个级，颜色与下方数位对应 -->
+            <div class="groups-row">
+                <span class="group-label level-3">亿级</span>
+                <span class="group-label level-2">万级</span>
+                <span class="group-label level-1">个级</span>
+            </div>
+
+            <!-- 12个数位卡片（千亿位 → 个位） -->
+            <div class="digits-row" id="digitsRow"></div>
+
+            <!-- 当前数值 -->
+            <div class="current-value-box" id="currentValueDisplay">0</div>
+
+            <!-- 目标输入 -->
+            <div class="target-area">
+                <span class="target-label">🎯 目标数：</span>
+                <input type="text" id="targetInput" class="target-input" value="0" inputmode="numeric" placeholder="输入目标数">
+                <button class="btn" id="randomBtn">🎲 随机</button>
+                <button class="btn btn-primary" id="autoFillBtn">⚡ 生成珠子</button>
+            </div>
+
+            <!-- 操作按钮 -->
+            <div class="button-panel">
+                <button class="btn" id="clearBtn">🧹 一键清零</button>
+                <button class="btn" id="speakBtn">🔊 读一读</button>
+                <button class="btn" id="checkBtn">✅ 检查</button>
+            </div>
+
+            <!-- 状态消息 -->
+            <div class="flex-center">
+                <div class="status-msg" id="statusMsg">点击竖杆区域落下一颗珠子</div>
+            </div>
+            <div class="footer-note">
+                ⚡ 每个数位最多9颗珠子 · 亿级4位 · 万级4位 · 个级4位
+            </div>
+        </div>
+    </div>
+    <script>
+        (function() {
+            // 完整12个数位：从右到左（个位 → 千亿位）
+            const digitNames = [
+                '个位', '十位', '百位', '千位',
+                '万位', '十万位', '百万位', '千万位',
+                '亿位', '十亿位', '百亿位', '千亿位'
+            ];
+            // 级别：1=个级, 2=万级, 3=亿级
+            const digitLevels = [
+                1, 1, 1, 1,   // 个级：个、十、百、千
+                2, 2, 2, 2,   // 万级：万、十万、百万、千万
+                3, 3, 3, 3    // 亿级：亿、十亿、百亿、千亿
+            ];
+            const weights = digitNames.map((_, idx) => Math.pow(10, idx));
+
+            // 珠子状态
+            let beads = new Array(12).fill(0);
+            let targetValue = 0;
+
+            // DOM
+            const digitsRow = document.getElementById('digitsRow');
+            const currentValueDisplay = document.getElementById('currentValueDisplay');
+            const targetInput = document.getElementById('targetInput');
+            const statusMsg = document.getElementById('statusMsg');
+
+            const clearBtn = document.getElementById('clearBtn');
+            const speakBtn = document.getElementById('speakBtn');
+            const checkBtn = document.getElementById('checkBtn');
+            const randomBtn = document.getElementById('randomBtn');
+            const autoFillBtn = document.getElementById('autoFillBtn');
+
+            // 渲染数位卡片（千亿位 → 个位）
+            function renderDigits() {
+                digitsRow.innerHTML = '';
+                for (let i = 11; i >= 0; i--) {
+                    const level = digitLevels[i];
+                    const digitCard = document.createElement('div');
+                    digitCard.className = `digit-card level-${level}`;
+                    digitCard.dataset.index = i;
+
+                    const title = document.createElement('div');
+                    title.className = 'digit-title';
+                    title.textContent = digitNames[i];
+
+                    const beadArea = document.createElement('div');
+                    beadArea.className = 'bead-area';
+                    beadArea.id = `bead-area-${i}`;
+                    beadArea.dataset.index = i;
+
+                    beadArea.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const idx = parseInt(beadArea.dataset.index, 10);
+                        addBeadToDigit(idx);
+                    });
+
+                    digitCard.appendChild(title);
+                    digitCard.appendChild(beadArea);
+                    digitsRow.appendChild(digitCard);
+                }
+            }
+
+            // 向指定数位添加一颗珠子（最多9颗）
+            function addBeadToDigit(idx) {
+                if (beads[idx] >= 9) {
+                    statusMsg.textContent = `⚠️ “${digitNames[idx]}” 已经有9颗珠子了，不能再拨啦！`;
+                    return;
+                }
+                beads[idx] += 1;
+                const area = document.getElementById(`bead-area-${idx}`);
+                if (area) {
+                    const bead = document.createElement('div');
+                    bead.className = 'bead';
+                    area.appendChild(bead);
+                }
+                updateCurrentValueDisplay();
+                statusMsg.textContent = `✅ 在“${digitNames[idx]}”拨了一颗珠子（当前${beads[idx]}颗）`;
+                if (beads.every(c => c >= 9)) {
+                    statusMsg.textContent = '🎉 所有数位都满9颗啦！';
+                }
+            }
+
+            // 当前数值
+            function getCurrentValue() {
+                let val = 0;
+                for (let i = 0; i < 12; i++) {
+                    val += beads[i] * weights[i];
+                }
+                return val;
+            }
+
+            function updateCurrentValueDisplay() {
+                const val = getCurrentValue();
+                currentValueDisplay.textContent = val.toLocaleString('en-US');
+            }
+
+            // 一键清零
+            function clearAll() {
+                beads.fill(0);
+                for (let i = 0; i < 12; i++) {
+                    const area = document.getElementById(`bead-area-${i}`);
+                    if (area) area.innerHTML = '';
+                }
+                updateCurrentValueDisplay();
+                statusMsg.textContent = '🧹 已全部清零，可以重新开始拨珠。';
+            }
+
+            // 语音读出
+            function speakCurrentValue() {
+                const val = getCurrentValue();
+                if (val === 0) {
+                    speakText('零');
+                } else {
+                    speakText(numberToChinese(val));
+                }
+            }
+
+            // 数字转中文
+            function numberToChinese(num) {
+                if (num === 0) return '零';
+                const units = ['', '十', '百', '千', '万', '十万', '百万', '千万', '亿', '十亿', '百亿', '千亿'];
+                const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九'];
+                let str = num.toString();
+                let len = str.length;
+                let result = '';
+                let zeroFlag = false;
+
+                for (let i = 0; i < len; i++) {
+                    const d = parseInt(str[i]);
+                    const pos = len - 1 - i;
+                    if (d === 0) {
+                        zeroFlag = true;
+                    } else {
+                        if (zeroFlag) {
+                            result += '零';
+                            zeroFlag = false;
+                        }
+                        result += digits[d] + units[pos];
+                    }
+                }
+                result = result.replace(/^一十/, '十');
+                return result;
+            }
+
+            function speakText(text) {
+                if (!window.speechSynthesis) {
+                    alert('当前浏览器不支持语音朗读');
+                    return;
+                }
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-CN';
+                utterance.rate = 0.9;
+                utterance.pitch = 1;
+                window.speechSynthesis.speak(utterance);
+                statusMsg.textContent = `🔊 读出：${text}`;
+            }
+
+            // 检查
+            function checkAnswer() {
+                const current = getCurrentValue();
+                const target = targetValue;
+                if (current === target) {
+                    statusMsg.textContent = `✅ 正确！当前数 ${current.toLocaleString()} 等于目标数。`;
+                } else {
+                    statusMsg.textContent = `❌ 不对哦，当前是 ${current.toLocaleString()}，目标是 ${target.toLocaleString()}。继续拨一拨吧。`;
+                }
+            }
+
+            // 解析目标输入（最大9999亿 = 999,900,000,000）
+            function parseTargetInput(inputStr) {
+                let cleaned = inputStr.replace(/[^0-9]/g, '');
+                if (cleaned === '') return 0;
+                let num = Number(cleaned);
+                if (num > 999900000000) {
+                    num = 999900000000;
+                    statusMsg.textContent = '⚠️ 目标数最大支持9999亿，已自动调整。';
+                }
+                return num;
+            }
+
+            // 设定目标
+            function setTargetFromInput() {
+                const raw = targetInput.value.trim();
+                let val = parseTargetInput(raw);
+                targetValue = val;
+                targetInput.value = val.toLocaleString('en-US');
+                statusMsg.textContent = `🎯 目标数已设为 ${val.toLocaleString()}`;
+            }
+
+            // 随机目标数
+            function randomTarget() {
+                const max = 999900000000;
+                const randomVal = Math.floor(Math.random() * (max + 1));
+                targetValue = randomVal;
+                targetInput.value = randomVal.toLocaleString('en-US');
+                statusMsg.textContent = `🎲 随机目标数：${randomVal.toLocaleString()}`;
+            }
+
+            // ⚡ 根据目标数自动生成珠子
+            function autoFillFromTarget() {
+                const raw = targetInput.value.trim();
+                let val = parseTargetInput(raw);
+                targetValue = val;
+                targetInput.value = val.toLocaleString('en-US');
+
+                const newBeads = new Array(12).fill(0);
+                let remaining = val;
+                for (let i = 11; i >= 0; i--) {
+                    if (remaining <= 0) break;
+                    const weight = weights[i];
+                    const count = Math.min(9, Math.floor(remaining / weight));
+                    newBeads[i] = count;
+                    remaining -= count * weight;
+                }
+
+                beads = newBeads;
+
+                for (let i = 0; i < 12; i++) {
+                    const area = document.getElementById(`bead-area-${i}`);
+                    if (!area) continue;
+                    area.innerHTML = '';
+                    const count = beads[i];
+                    for (let b = 0; b < count; b++) {
+                        const bead = document.createElement('div');
+                        bead.className = 'bead';
+                        bead.style.animationDelay = `${b * 0.05}s`;
+                        area.appendChild(bead);
+                    }
+                }
+                updateCurrentValueDisplay();
+                statusMsg.textContent = `⚡ 已自动生成目标数 ${val.toLocaleString()} 的珠子`;
+            }
+
+            // 初始化
+            function init() {
+                renderDigits();
+                updateCurrentValueDisplay();
+                targetInput.value = targetValue.toLocaleString('en-US');
+                clearBtn.addEventListener('click', clearAll);
+                speakBtn.addEventListener('click', speakCurrentValue);
+                checkBtn.addEventListener('click', checkAnswer);
+                randomBtn.addEventListener('click', randomTarget);
+                autoFillBtn.addEventListener('click', autoFillFromTarget);
+                targetInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        setTargetFromInput();
+                        e.preventDefault();
+                    }
+                });
+                targetInput.addEventListener('blur', setTargetFromInput);
+                statusMsg.textContent = '点击竖杆区域落下一颗珠子';
+            }
+
+            init();
+        })();
+    </script>
+</body>
+</html>
